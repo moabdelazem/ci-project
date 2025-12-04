@@ -27,6 +27,12 @@ pipeline {
         }
 
         stage('Lint') {
+            agent {
+                docker {
+                    image 'node:22-alpine'
+                    args '-v /usr/local/bin/npm:/usr/local/bin/npm -v /usr/local/lib/node_modules:/usr/local/lib/node_modules'
+                }
+            }
             steps {
                 sh 'npm ci'
                 sh 'npm run lint'
