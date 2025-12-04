@@ -2,9 +2,13 @@ pipeline {
     agent any
 
     environment {
-        COMMIT_HASH = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
         IMAGE_NAME = 'moabdelazem/ci-project'
-        VERSION = "v1.0.${BUILD_NUMBER}-${COMMIT_HASH}"
+        DOCKER_REGISTRY = 'https://index.docker.io/v1/'
+    }
+
+    options {
+        timestamps()
+        { timeout(time: 10, unit: 'MINUTES') }
     }
 
     stages {
@@ -14,10 +18,19 @@ pipeline {
             }
         }
 
+        stage('Prepare') {
+            steps {
+                script {
+                    env.COMMIT_HASH = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.VERSION = "v1.0.${BUILD_NUMBER}-${env.COMMIT_HASH}"
+                }
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${IMAGE_NAME}:${VERSION}")
+                    dockerImage = docker.build("${IMAGE_NAME}:${VERSION}")
                 }
             }
         }
@@ -25,12 +38,26 @@ pipeline {
         stage('Push Docker Image') {
             steps {
                 script {
-                    /* groovylint-disable-next-line NestedBlockDepth */
-                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub-credentials') {
-                        docker.image("${IMAGE_NAME}:${VERSION}").push()
+                    docker.withRegistry(DOCKER_REGISTRY, 'dockerhub-credentials') {
+                        dockerImage.push()
+                        dockerImage.push('latest')
                     }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            sh "docker rmi ${IMAGE_NAME}:${VERSION} || true"
+            sh "docker rmi ${IMAGE_NAME}:latest || true"
+            cleanWs()
+        }
+        success {
+            echo "Pipeline completed successfully! Image: ${IMAGE_NAME}:${VERSION}"
+        }
+        failure {
+            echo 'Pipeline failed!'
         }
     }
 }
