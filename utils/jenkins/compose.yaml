@@ -20,7 +20,10 @@ services:
 
   # Jenkins controller with Blue Ocean and Docker support
   jenkins:
-    image: jenkins/jenkins:lts-jdk21
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: myjenkins-blueocean:lts
     container_name: jenkins-blueocean
     restart: on-failure
     depends_on:
